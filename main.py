@@ -1,23 +1,41 @@
 
-import discord
+from discord.ext import commands
+import redis
+import datetime
 
 
-client = discord.Client()
+bot = commands.Bot(command_prefix='!')
+
+pool = redis.ConnectionPool('localhost', port=6379, db=0)
 
 
-@client.event
-async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+# @bot.command()
+# async def test(ctx, *args):
+#     await ctx.send(' '.join(args))
+#     msg = ctx.message
+#     await msg.add_reaction('💪')
 
 
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
+@bot.command()
+async def help(ctx):
+    pass
 
-    if message.content.startswith('$hello'):
-        await message.channel.send('Hello!')
+
+@bot.command()
+async def mmr(ctx):
+    pass
+
+
+@bot.command()
+async def workout(ctx):
+    pass
+
+
+@bot.command()
+async def active_rest(ctx):
+    pass
+
 
 with open('token') as token_file:
     token = token_file.readline()
-client.run(token)
+bot.run(token)
