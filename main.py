@@ -24,8 +24,8 @@ async def mmr(ctx):
 
     update_mmr(id)
 
-    await ctx.send(name + ' is a musclor' + \
-        rdb.hget('musclor:' + id, 'mmr').decode())
+    await ctx.send(name + ' you are a musclor' + \
+        rdb.hget('musclor:' + id + ':info', 'mmr').decode())
 
 
 @bot.command()
@@ -38,7 +38,7 @@ async def workout(ctx):
         new_musclor(id, name)
 
     rdb.lpush('musclor:' + id + ':workouts', str(datetime.now().date()))
-    rdb.hincrby('musclor:' + id, 'mmr', mmr_workout)
+    rdb.hincrby('musclor:' + id + ':info', 'mmr', mmr_workout)
 
     update_mmr(id)
 
@@ -55,7 +55,7 @@ async def active(ctx):
         new_musclor(id, name)
 
     rdb.lpush('musclor:' + id + ':active-rests', str(datetime.now().date()))
-    rdb.hincrby('musclor:' + id, 'mmr', mmr_active)
+    rdb.hincrby('musclor:' + id + ':info', 'mmr', mmr_active)
 
     update_mmr(id)
 
@@ -67,7 +67,7 @@ def new_musclor(id, name):
     rdb.sadd('musclorz-ids', id)
 
     current_date_str = str(datetime.now().date())
-    rdb.hset('musclor:' + id, None, None, {
+    rdb.hset('musclor:' + id + ':info', None, None, {
         'id': id,
         'name': name,
         'start-date': current_date_str,
@@ -79,13 +79,13 @@ def new_musclor(id, name):
 def update_mmr(id):
     current_date = datetime.now().date()
     last_update = datetime.strptime(
-        rdb.hget('musclor:' + id, 'last-update').decode(), '%Y-%m-%d'
+        rdb.hget('musclor:' + id + ':info', 'last-update').decode(), '%Y-%m-%d'
     ).date()
     n_days = (current_date - last_update).days
-    mmr = int(rdb.hget('musclor:' + id, 'mmr')) - mmr_decay * n_days
+    mmr = int(rdb.hget('musclor:' + id + ':info', 'mmr')) - mmr_decay * n_days
     if mmr < 0:
         mmr = 0
-    rdb.hset('musclor:' + id, None, None, {
+    rdb.hset('musclor:' + id + ':info', None, None, {
         'mmr': mmr,
         'last-update': str(current_date),
     })
