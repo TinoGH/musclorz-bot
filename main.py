@@ -138,7 +138,7 @@ def update_mmr(musclor):
     n_days = (current_date - last_update).days
     mmr = int(rdb.hget(musclor + ':info', 'mmr'))
     
-    pause = rdb.hget(musclor + ':info', 'pause') == 'on'
+    pause = rdb.hget(musclor + ':info', 'pause').decode() == 'on'
     if not pause:
         mmr -= MMR_DECAY * n_days
         if mmr < 0:
