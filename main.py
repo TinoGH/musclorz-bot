@@ -43,8 +43,8 @@ async def info(ctx, mention=None):
     await ctx.send(rdb.hget(musclor + ':info', 'name').decode() + ':\n'
                    + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
                    + 'Joined: ' + rdb.hget(musclor + ':info', 'start_date').decode() + '\n'
-                   + 'Achievments: ' + ', '.join([achv.decode() for achv in 
-                                                  rdb.zrange(musclor + ':achievments', 0, -1)]))
+                   + 'achievements: ' + ', '.join([achv.decode() for achv in 
+                                                  rdb.zrange(musclor + ':achievements', 0, -1)]))
 
 
 @bot.command()
@@ -113,32 +113,32 @@ async def pause(ctx):
     
 
 @bot.command()
-async def achievment(ctx, arg):
-    '''Notify your latest achievment'''
+async def achievement(ctx, arg):
+    '''Notify your latest achievement'''
     
     musclor = find_musclor(ctx)
     
     n_day = day_number(musclor, today())
     
-    rdb.zadd(musclor + ':achievments', {arg: n_day})
+    rdb.zadd(musclor + ':achievements', {arg: n_day})
     
     await ctx.message.add_reaction('🏆')
     
 
 @bot.command()
-async def achievments(ctx):
-    '''Your achievments'''
+async def achievements(ctx):
+    '''Your achievements'''
     
     musclor = find_musclor(ctx)
     
-    achievments_list = rdb.zrange(musclor + ':achievments', 0, -1, withscores=True)
+    achievements_list = rdb.zrange(musclor + ':achievements', 0, -1, withscores=True)
     
     msg = ctx.author.name
-    if len(achievments_list) == 0:
-        msg += ' has no achievments yet.'
+    if len(achievements_list) == 0:
+        msg += ' has no achievements yet.'
     else:
-        for (achievment, n_day) in achievments_list:
-            msg += '\n' + str(day_date(musclor, n_day)) + ': ' + achievment.decode()
+        for (achievement, n_day) in achievements_list:
+            msg += '\n' + str(day_date(musclor, n_day)) + ': ' + achievement.decode()
             
     await ctx.send(msg)
     
