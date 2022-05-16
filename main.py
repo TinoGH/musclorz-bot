@@ -15,21 +15,64 @@ MMR_ACTIVE = 3
 
 
 @bot.command()
-async def test(ctx, week_day=None):
-    print(week_day)
+async def mmr(ctx):
+    '''Your Musclor-mmr'''
+    
+    musclor = find_musclor(ctx)
+
+    await ctx.send(ctx.author.name + ' you are a Musclor'
+                   + rdb.hget(musclor + ':info', 'mmr').decode())
+    
+    
+@bot.command()
+async def info(ctx, mention=None):
+    '''Info on mentioned @musclor (yours if no mention)'''
+    
+    if mention == None:
+        musclor = find_musclor(ctx)
+    else:
+        discord_id = mention[2:-1]
+        id = rdb.zscore('musclorz_ids', discord_id)
+        if id == None:
+            await ctx.message.add_reaction('❓')
+            return -1
+        else:
+            musclor = 'musclor:' + str(int(id))
+    
+    await ctx.send(rdb.hget(musclor + ':info', 'name').decode() + ':\n'
+                   + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
+                   + 'Joined: ' + rdb.hget(musclor + ':info', 'start_date').decode() + '\n'
+                   + 'Achievments: ' + ', '.join([achv.decode() for achv in 
+                                                  rdb.zrange(musclor + ':achievments', 0, -1)]))
 
 
 @bot.command()
-async def mmr(ctx):
+async def musclorz(ctx):
+    '''Leaderboard'''
     
-    musclor = find_musclor(ctx, None)
-
-    await ctx.send(ctx.author.name + " you're a musclor" + \
-        rdb.hget(musclor + ':info', 'mmr').decode())
+    if rdb.get('n_musclorz') == None:
+        await ctx.send('No musclorz yet.')
+        return -1
+    
+    musclors = ['musclor:' + str(int(id)) for id in range(1, int(rdb.get('n_musclorz')) + 1)]
+    for musclor in musclors:
+        update_mmr(musclor)
+    rankings = [(int(rdb.hget(musclor + ':info', 'mmr')), 
+                 rdb.hget(musclor + ':info', 'name').decode()) 
+                for musclor in musclors]
+    
+    rankings.sort(reverse=True)
+    
+    msg = 'Leaderboard:\n'
+    for (mmr, name) in rankings:
+        msg += str(mmr) + ' : ' + name + '\n'
+        
+    await ctx.send(msg)
 
 
 @bot.command()
 async def workout(ctx, week_day=None):
+    '''Notify your workout/sport session'''
     
     musclor = find_musclor(ctx, week_day)
     
@@ -44,6 +87,7 @@ async def workout(ctx, week_day=None):
 
 @bot.command()
 async def active(ctx, week_day=None):
+    '''Notify your active rest (trek, short run, yoga, etc...)'''
 
     musclor = find_musclor(ctx, week_day)
     
@@ -58,8 +102,9 @@ async def active(ctx, week_day=None):
     
 @bot.command()
 async def pause(ctx):
+    '''Stops your daily mmr decay (automatically unpause with !workout/active)'''
     
-    musclor = find_musclor(ctx, None)
+    musclor = find_musclor(ctx)
     
     rdb.hset(musclor + ':info', 'pause', 'on')
     
@@ -68,31 +113,36 @@ async def pause(ctx):
 
 @bot.command()
 async def achievment(ctx, arg):
+    '''Notify your latest achievment'''
     
-    musclor = find_musclor(ctx, None)
+    musclor = find_musclor(ctx)
     
-    rdb.lpush(musclor + ':achievments', arg)
+    n_day = day_number(musclor, today())
+    
+    rdb.zadd(musclor + ':achievments', {arg: n_day})
     
     await ctx.message.add_reaction('🏆')
     
 
 @bot.command()
 async def achievments(ctx):
+    '''Your achievments'''
     
-    musclor = find_musclor(ctx, None)
+    musclor = find_musclor(ctx)
     
-    achievments_list = rdb.lrange(musclor + ':achievments', 0, -1)
+    achievments_list = rdb.zrange(musclor + ':achievments', 0, -1, withscores=True)
     
+    msg = ctx.author.name
     if len(achievments_list) == 0:
-        msg = ctx.author.name + ' has no achievments yet'
+        msg += ' has no achievments yet.'
     else:
-        msg = ctx.author.name + ' has the following achievments: ' \
-            + ', '.join([achv.decode() for achv in achievments_list])
+        for (achievment, n_day) in achievments_list:
+            msg += '\n' + str(day_date(musclor, n_day)) + ': ' + achievment.decode()
             
     await ctx.send(msg)
     
     
-def find_musclor(ctx, week_day):
+def find_musclor(ctx, week_day=None):
     
     discord_id = ctx.author.id
     
@@ -132,10 +182,9 @@ def new_musclor(discord_id, name, week_day):
 
 def update_mmr(musclor):
     
-    current_date = datetime.now().date()
     last_update = decode_date(rdb.hget(musclor + ':info', 'last_update'))
     
-    n_days = (current_date - last_update).days
+    n_days = (today() - last_update).days
     mmr = int(rdb.hget(musclor + ':info', 'mmr'))
     
     pause = rdb.hget(musclor + ':info', 'pause').decode() == 'on'
@@ -146,7 +195,7 @@ def update_mmr(musclor):
         
     rdb.hset(musclor + ':info', None, None, {
         'mmr': mmr,
-        'last_update': str(current_date),
+        'last_update': str(today()),
     })
 
 
@@ -155,6 +204,13 @@ def day_number(musclor, date):
     start_date = decode_date(rdb.hget(musclor + ':info', 'start_date'))
     
     return (date - start_date).days
+
+
+def day_date(musclor, n_day):
+    
+    start_date = decode_date(rdb.hget(musclor + ':info', 'start_date'))
+    
+    return start_date + timedelta(n_day)
     
 
 def decode_date(date):
@@ -163,11 +219,11 @@ def decode_date(date):
 
 def determine_date(week_day):
     
-    today = datetime.now().date()
-    
     if week_day == None:
-        return today
+        return today()
     
+    if week_day[-1] == ':':
+        week_day = week_day[0:-1]
     week_day = week_day.lower()
     
     if week_day == 'lundi' or week_day == 'monday':
@@ -185,11 +241,15 @@ def determine_date(week_day):
     elif week_day == 'dimanche' or week_day == 'sunday':
         n_weekday = 6
     else:
-        return today
+        return today()
     
-    days_diff = (today.weekday() - n_weekday + 7) % 7
+    days_diff = (today().weekday() - n_weekday + 7) % 7
     
-    return today - timedelta(days_diff)
+    return today() - timedelta(days_diff)
+
+
+def today():
+    return datetime.now().date()
 
 
 with open('token') as token_file:
