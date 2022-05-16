@@ -38,6 +38,7 @@ async def info(ctx, mention=None):
             return -1
         else:
             musclor = 'musclor:' + str(int(id))
+            update_mmr(musclor)
     
     await ctx.send(rdb.hget(musclor + ':info', 'name').decode() + ':\n'
                    + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
