@@ -9,9 +9,9 @@ bot = commands.Bot(command_prefix='!')
 rdb = redis.Redis()
 
 MMR_BASE = 1000
-MMR_DECAY = 3
-MMR_WORKOUT = 10
-MMR_ACTIVE = 3
+MMR_DECAY = 1
+MMR_WORKOUT = 7
+MMR_ACTIVE = 2
 
 
 @bot.command()
@@ -29,16 +29,17 @@ async def info(ctx, mention=None):
     '''Info on mentioned @musclor (yours if no mention)'''
     
     if mention == None:
-        musclor = find_musclor(ctx)
+        discord_id = ctx.author.id
     else:
         discord_id = mention[2:-1]
-        id = rdb.zscore('musclorz_ids', discord_id)
-        if id == None:
-            await ctx.message.add_reaction('❓')
-            return -1
-        else:
-            musclor = 'musclor:' + str(int(id))
-            update_mmr(musclor)
+        
+    id = rdb.zscore('musclorz_ids', discord_id)
+    if id == None:
+        await ctx.message.add_reaction('❓')
+        return -1
+    else:
+        musclor = 'musclor:' + str(int(id))
+        update_mmr(musclor)
     
     await ctx.send(rdb.hget(musclor + ':info', 'name').decode() + ':\n'
                    + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
@@ -81,7 +82,7 @@ async def workout(ctx, week_day=None):
     
     rdb.lpush(musclor + ':workouts', n_day)
     rdb.hincrby(musclor + ':info', 'mmr', MMR_WORKOUT)
-    rdb.hset(musclor + ':info', 'pause', 'off')
+    # rdb.hset(musclor + ':info', 'pause', 'off')
 
     await ctx.message.add_reaction('💪')
 
@@ -96,20 +97,20 @@ async def active(ctx, week_day=None):
 
     rdb.lpush(musclor + ':actives', n_day)
     rdb.hincrby(musclor + ':info', 'mmr', MMR_ACTIVE)
-    rdb.hset(musclor + ':info', 'pause', 'off')
+    # rdb.hset(musclor + ':info', 'pause', 'off')
 
     await ctx.message.add_reaction('🧘')
     
     
-@bot.command()
-async def pause(ctx):
-    '''Stops your daily mmr decay (automatically unpause with !workout/active)'''
+# @bot.command()
+# async def pause(ctx):
+#     '''Stops your daily mmr decay (automatically unpause with !workout/active)'''
     
-    musclor = find_musclor(ctx)
+#     musclor = find_musclor(ctx)
     
-    rdb.hset(musclor + ':info', 'pause', 'on')
+#     rdb.hset(musclor + ':info', 'pause', 'on')
     
-    await ctx.message.add_reaction('🛌')
+#     await ctx.message.add_reaction('🛌')
     
 
 @bot.command()
@@ -183,16 +184,12 @@ def new_musclor(discord_id, name, week_day):
 
 def update_mmr(musclor):
     
-    last_update = decode_date(rdb.hget(musclor + ':info', 'last_update'))
+    start_date = decode_date(rdb.hget(musclor + ':info', 'start_date'))
     
-    n_days = (today() - last_update).days
-    mmr = int(rdb.hget(musclor + ':info', 'mmr'))
-    
-    pause = rdb.hget(musclor + ':info', 'pause').decode() == 'on'
-    if not pause:
-        mmr -= MMR_DECAY * n_days
-        if mmr < 0:
-            mmr = 0
+    n_days = (today() - start_date).days
+    n_workouts = rdb.llen(musclor + ':workouts')
+    n_actives = rdb.llen(musclor + ':actives')
+    mmr = MMR_BASE + n_workouts * MMR_WORKOUT + n_actives * MMR_ACTIVE - n_days * MMR_DECAY
         
     rdb.hset(musclor + ':info', None, None, {
         'mmr': mmr,
