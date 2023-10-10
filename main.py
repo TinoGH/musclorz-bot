@@ -1,6 +1,7 @@
 
 from discord.ext import commands
 import redis
+import sys
 from datetime import datetime, timedelta
 
 
@@ -45,7 +46,7 @@ async def info(ctx, mention=None):
                    + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
                    + 'Joined: ' + rdb.hget(musclor + ':info', 'start_date').decode() + '\n'
                    + 'achievements: ' + ', '.join([achv.decode() for achv in 
-                                                  rdb.zrange(musclor + ':achievements', 0, -1)]))
+                                                  rdb.zrange(musclor + ':achievements', 0, sys.maxsize, byscore=True)]))
 
 
 @bot.command()
@@ -82,7 +83,7 @@ async def workout(ctx, week_day=None):
     
     rdb.lpush(musclor + ':workouts', n_day)
     rdb.hincrby(musclor + ':info', 'mmr', MMR_WORKOUT)
-    # rdb.hset(musclor + ':info', 'pause', 'off')
+    rdb.hset(musclor + ':info', 'pause', 'off')
 
     await ctx.message.add_reaction('💪')
 
@@ -97,20 +98,20 @@ async def active(ctx, week_day=None):
 
     rdb.lpush(musclor + ':actives', n_day)
     rdb.hincrby(musclor + ':info', 'mmr', MMR_ACTIVE)
-    # rdb.hset(musclor + ':info', 'pause', 'off')
+    rdb.hset(musclor + ':info', 'pause', 'off')
 
     await ctx.message.add_reaction('🧘')
     
     
-# @bot.command()
-# async def pause(ctx):
-#     '''Stops your daily mmr decay (automatically unpause with !workout/active)'''
+@bot.command()
+async def pause(ctx):
+    '''Stops your daily mmr decay (automatically unpause with !workout/active)'''
     
-#     musclor = find_musclor(ctx)
+    musclor = find_musclor(ctx)
     
-#     rdb.hset(musclor + ':info', 'pause', 'on')
+    rdb.hset(musclor + ':info', 'pause', 'on')
     
-#     await ctx.message.add_reaction('🛌')
+    await ctx.message.add_reaction('🛌')
     
 
 @bot.command()
@@ -132,7 +133,7 @@ async def achievements(ctx):
     
     musclor = find_musclor(ctx)
     
-    achievements_list = rdb.zrange(musclor + ':achievements', 0, -1, withscores=True)
+    achievements_list = rdb.zrange(musclor + ':achievements', 0, sys.maxsize, byscore=True, withscores=True)
     
     msg = ctx.author.name
     if len(achievements_list) == 0:
