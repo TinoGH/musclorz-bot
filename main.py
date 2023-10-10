@@ -46,7 +46,7 @@ async def info(ctx, mention=None):
                    + 'Musclor' + rdb.hget(musclor + ':info', 'mmr').decode() + '\n'
                    + 'Joined: ' + rdb.hget(musclor + ':info', 'start_date').decode() + '\n'
                    + 'achievements: ' + ', '.join([achv.decode() for achv in 
-                                                  rdb.zrange(musclor + ':achievements', 0, sys.maxsize, byscore=True)]))
+                                                  rdb.zrangebyscore(musclor + ':achievements', 0, sys.maxsize)]))
 
 
 @bot.command()
@@ -133,7 +133,7 @@ async def achievements(ctx):
     
     musclor = find_musclor(ctx)
     
-    achievements_list = rdb.zrange(musclor + ':achievements', 0, sys.maxsize, byscore=True, withscores=True)
+    achievements_list = rdb.zrangebyscore(musclor + ':achievements', 0, sys.maxsize, withscores=True)
     
     msg = ctx.author.name
     if len(achievements_list) == 0:
